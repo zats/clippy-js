@@ -1,5 +1,7 @@
 # clippy-js
 
+![clippy-js demo](docs/demo-preview.png)
+
 Browser and React player for the Clippy, Cat, and Rocky sprite atlases from `clippy-swift`.
 
 ## Install
