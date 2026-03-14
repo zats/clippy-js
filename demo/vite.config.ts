@@ -3,8 +3,11 @@ import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 
 const demoRoot = fileURLToPath(new URL('.', import.meta.url))
+const repositoryName = process.env.GITHUB_REPOSITORY?.split('/')[1]
+const base = repositoryName ? `/${repositoryName}/` : '/'
 
 export default defineConfig({
+  base,
   root: demoRoot,
   resolve: {
     alias: {

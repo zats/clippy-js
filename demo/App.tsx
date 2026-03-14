@@ -19,11 +19,22 @@ function visibleAnimationsFor(character: CharacterName): string[] {
   const animations = builtInCharacterPacks[character].animationNames
   const visibleAnimations = animations.filter((animation) => !hiddenAnimationPattern.test(animation))
 
-  return visibleAnimations.length > 0 ? visibleAnimations : animations
+  return (visibleAnimations.length > 0 ? visibleAnimations : animations).toSorted((left, right) =>
+    left.localeCompare(right)
+  )
 }
 
 function defaultAnimationFor(character: CharacterName): string {
   return visibleAnimationsFor(character)[0] ?? builtInCharacterPacks[character].animationNames[0]!
+}
+
+function nextAnimationForCharacter(character: CharacterName, currentAnimation: string): string {
+  const animations = visibleAnimationsFor(character)
+  if (animations.includes(currentAnimation)) {
+    return currentAnimation
+  }
+
+  return animations[0] ?? builtInCharacterPacks[character].animationNames[0]!
 }
 
 type DragState = {
@@ -283,13 +294,15 @@ export function Demo() {
                         <button
                           key={character}
                           type="button"
-                          className={`choiceButton ${isSelected ? 'active is-selected' : ''}`}
-                          aria-pressed={isSelected}
-                          onClick={() => {
-                            setSelectedCharacter(character)
-                            setSelectedAnimation(defaultAnimationFor(character))
-                          }}
-                        >
+                        className={`choiceButton ${isSelected ? 'active is-selected' : ''}`}
+                        aria-pressed={isSelected}
+                        onClick={() => {
+                          setSelectedCharacter(character)
+                          setSelectedAnimation((currentAnimation) =>
+                            nextAnimationForCharacter(character, currentAnimation)
+                          )
+                        }}
+                      >
                           <span>{pack.displayName}</span>
                         </button>
                       )

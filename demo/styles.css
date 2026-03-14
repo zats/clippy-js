@@ -215,34 +215,12 @@ body {
   background-attachment: local, local, scroll, scroll;
 }
 
-.animationList,
-.sourceCode {
-  scrollbar-color: #9dbfee #ece9d8;
-}
-
-.animationList::-webkit-scrollbar,
-.sourceCode::-webkit-scrollbar {
-  width: 15px;
-  height: 15px;
-}
-
-.animationList::-webkit-scrollbar-track,
-.sourceCode::-webkit-scrollbar-track {
-  background: #ece9d8;
-}
-
-.animationList::-webkit-scrollbar-thumb,
-.sourceCode::-webkit-scrollbar-thumb {
-  border: 1px solid #4c6f99;
-  box-shadow:
-    inset 1px 1px rgba(255, 255, 255, 0.65),
-    inset -1px -1px rgba(54, 97, 152, 0.42);
-  background: linear-gradient(180deg, #d7e7fb 0%, #9dbfee 55%, #6e97d3 100%);
-}
-
-.animationList::-webkit-scrollbar-corner,
-.sourceCode::-webkit-scrollbar-corner {
-  background: #ece9d8;
+/* XP.css styles both vertical scrollbar buttons at each end in WebKit. Hide the extra pair. */
+.animationList::-webkit-scrollbar-button:vertical:start:increment,
+.animationList::-webkit-scrollbar-button:vertical:end:decrement,
+.sourceCode::-webkit-scrollbar-button:vertical:start:increment,
+.sourceCode::-webkit-scrollbar-button:vertical:end:decrement {
+  display: none;
 }
 
 .choiceButton {
