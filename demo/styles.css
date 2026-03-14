@@ -199,6 +199,50 @@ body {
   max-height: 296px;
   overflow: auto;
   padding-right: 2px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  background:
+    linear-gradient(#ece9d8 30%, rgba(236, 233, 216, 0)) center top,
+    linear-gradient(rgba(236, 233, 216, 0), #ece9d8 70%) center bottom,
+    radial-gradient(farthest-side at 50% 0, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0)) center top,
+    radial-gradient(farthest-side at 50% 100%, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0)) center bottom;
+  background-repeat: no-repeat;
+  background-size:
+    100% 16px,
+    100% 16px,
+    100% 8px,
+    100% 8px;
+  background-attachment: local, local, scroll, scroll;
+}
+
+.animationList,
+.sourceCode {
+  scrollbar-color: #9dbfee #ece9d8;
+}
+
+.animationList::-webkit-scrollbar,
+.sourceCode::-webkit-scrollbar {
+  width: 15px;
+  height: 15px;
+}
+
+.animationList::-webkit-scrollbar-track,
+.sourceCode::-webkit-scrollbar-track {
+  background: #ece9d8;
+}
+
+.animationList::-webkit-scrollbar-thumb,
+.sourceCode::-webkit-scrollbar-thumb {
+  border: 1px solid #4c6f99;
+  box-shadow:
+    inset 1px 1px rgba(255, 255, 255, 0.65),
+    inset -1px -1px rgba(54, 97, 152, 0.42);
+  background: linear-gradient(180deg, #d7e7fb 0%, #9dbfee 55%, #6e97d3 100%);
+}
+
+.animationList::-webkit-scrollbar-corner,
+.sourceCode::-webkit-scrollbar-corner {
+  background: #ece9d8;
 }
 
 .choiceButton {
@@ -210,6 +254,11 @@ body {
 
 .choiceButton.is-selected {
   color: #002c5f;
+  box-shadow:
+    inset 1px 1px rgba(255, 255, 255, 0.52),
+    inset -1px -1px rgba(21, 57, 104, 0.34);
+  background: linear-gradient(180deg, #d8e9ff 0%, #b4d0f7 48%, #88b0eb 100%);
+  text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .choiceButton span:last-child {
@@ -257,6 +306,17 @@ body {
     inset 1px 1px rgba(255, 255, 255, 0.72),
     inset -1px -1px rgba(126, 30, 25, 0.34);
   background: linear-gradient(180deg, #ffb7aa 0%, #f46e58 52%, #cb3a23 100%);
+}
+
+.windowControl.windowControlClose:hover:not(:disabled) {
+  background: linear-gradient(180deg, #ffc4b7 0%, #fb7d66 52%, #da4228 100%);
+}
+
+.windowControl.windowControlClose:active:not(:disabled) {
+  box-shadow:
+    inset -1px -1px rgba(255, 255, 255, 0.36),
+    inset 1px 1px rgba(108, 25, 17, 0.68);
+  background: linear-gradient(180deg, #c73c24 0%, #e15b43 52%, #ffab98 100%);
 }
 
 .windowControl:disabled {
@@ -351,45 +411,6 @@ body {
 
 .xpDialogActions button {
   min-width: 72px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    background:
-      radial-gradient(circle at top, rgba(56, 75, 101, 0.55), transparent 34%),
-      linear-gradient(180deg, #111926 0%, #16263a 52%, #1d3148 100%);
-    color: #f3f7fc;
-  }
-
-  body {
-    background-color: #111926;
-  }
-
-  .stage {
-    background-color: #111926;
-  }
-
-  .stage::after {
-    background: linear-gradient(rgba(8, 14, 22, 0.38), rgba(12, 22, 34, 0.42));
-  }
-
-  .stage::before {
-    background-image: var(--bliss-background-dark);
-  }
-
-  .washA {
-    background:
-      radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.18), transparent 24%),
-      radial-gradient(circle at 82% 24%, rgba(255, 194, 102, 0.22), transparent 18%),
-      radial-gradient(circle at 50% 86%, rgba(88, 144, 198, 0.28), transparent 24%);
-  }
-
-  .washB {
-    background-image:
-      linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
-      linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
-  }
 }
 
 @media (max-width: 900px) {
