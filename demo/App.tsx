@@ -8,8 +8,8 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent
 } from 'react'
-import blissBackground from '../../clippy-swift/Sources/ClippySwiftDemo/Resources/bliss.png'
-import blissBackgroundNight from '../../clippy-swift/Sources/ClippySwiftDemo/Resources/bliss_at_night.png'
+import blissBackground from './assets/bliss.png'
+import blissBackgroundNight from './assets/bliss_at_night.png'
 
 const hiddenAnimationPattern = /^(Hide|Show|RestPose|GoodBye|Goodbye)$/i
 
