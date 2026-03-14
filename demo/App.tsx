@@ -1,299 +1,201 @@
-import { AssistantSprite, builtInCharacterPacks } from 'clippy-js'
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { AssistantSprite, builtInCharacterPacks, type CharacterName } from 'clippy-js'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent
+} from 'react'
 import blissBackground from '../../clippy-swift/Sources/ClippySwiftDemo/Resources/bliss.png'
 import blissBackgroundNight from '../../clippy-swift/Sources/ClippySwiftDemo/Resources/bliss_at_night.png'
 
-type DemoSprite = {
-  id: string
-  label: string
-  character: 'clippy' | 'cat' | 'rocky'
-  row: 'top' | 'upper' | 'lower' | 'bottom'
-  column: 'farLeft' | 'left' | 'right' | 'farRight'
-  scale: number
+const hiddenAnimationPattern = /^(Hide|Show|RestPose|GoodBye|Goodbye)$/i
+
+const characterOrder = Object.keys(builtInCharacterPacks) as CharacterName[]
+
+function visibleAnimationsFor(character: CharacterName): string[] {
+  const animations = builtInCharacterPacks[character].animationNames
+  const visibleAnimations = animations.filter((animation) => !hiddenAnimationPattern.test(animation))
+
+  return visibleAnimations.length > 0 ? visibleAnimations : animations
 }
 
-type SpritePhase = 'entering' | 'idle' | 'exiting'
-
-type ActiveDemoSprite = DemoSprite & {
-  animation: string
-  phase: SpritePhase
+function defaultAnimationFor(character: CharacterName): string {
+  return visibleAnimationsFor(character)[0] ?? builtInCharacterPacks[character].animationNames[0]!
 }
 
-const assistantCharacters = ['clippy', 'cat', 'rocky'] as const
-
-const sprites: DemoSprite[] = [
-  { id: 'r1c1', label: 'Top Far Left', character: 'clippy', row: 'top', column: 'farLeft', scale: 1.15 },
-  { id: 'r1c2', label: 'Top Left', character: 'cat', row: 'top', column: 'left', scale: 1.05 },
-  { id: 'r1c3', label: 'Top Right', character: 'rocky', row: 'top', column: 'right', scale: 1.05 },
-  { id: 'r1c4', label: 'Top Far Right', character: 'clippy', row: 'top', column: 'farRight', scale: 1.15 },
-  { id: 'r2c1', label: 'Upper Far Left', character: 'cat', row: 'upper', column: 'farLeft', scale: 1.05 },
-  { id: 'r2c2', label: 'Upper Left', character: 'rocky', row: 'upper', column: 'left', scale: 1.1 },
-  { id: 'r2c3', label: 'Upper Right', character: 'clippy', row: 'upper', column: 'right', scale: 1.1 },
-  { id: 'r2c4', label: 'Upper Far Right', character: 'cat', row: 'upper', column: 'farRight', scale: 1.05 },
-  { id: 'r3c1', label: 'Lower Far Left', character: 'rocky', row: 'lower', column: 'farLeft', scale: 1.1 },
-  { id: 'r3c2', label: 'Lower Left', character: 'clippy', row: 'lower', column: 'left', scale: 1.15 },
-  { id: 'r3c3', label: 'Lower Right', character: 'cat', row: 'lower', column: 'right', scale: 1.05 },
-  { id: 'r3c4', label: 'Lower Far Right', character: 'rocky', row: 'lower', column: 'farRight', scale: 1.1 },
-  { id: 'r4c1', label: 'Bottom Far Left', character: 'clippy', row: 'bottom', column: 'farLeft', scale: 1.15 },
-  { id: 'r4c2', label: 'Bottom Left', character: 'cat', row: 'bottom', column: 'left', scale: 1.05 },
-  { id: 'r4c3', label: 'Bottom Right', character: 'rocky', row: 'bottom', column: 'right', scale: 1.05 },
-  { id: 'r4c4', label: 'Bottom Far Right', character: 'clippy', row: 'bottom', column: 'farRight', scale: 1.15 }
-]
-
-const demoScaleMultiplier = 0.5
-const enterDurationMs = 320
-const exitDurationMs = 180
-
-const rowAnimationPatterns: Record<DemoSprite['row'], RegExp[]> = {
-  top: [/lookdown/i, /gesturedown/i, /wave/i, /greeting/i, /getattention/i],
-  upper: [/lookdown/i, /gesture/i, /explain/i, /thinking/i, /processing/i],
-  lower: [/lookup/i, /gesture/i, /thinking/i, /processing/i, /idle/i],
-  bottom: [/lookup/i, /gestureup/i, /wave/i, /greeting/i, /getattention/i, /idle/i]
-}
-
-const columnAnimationPatterns: Record<DemoSprite['column'], RegExp[]> = {
-  farLeft: [/right/i, /gestureright/i, /lookupright/i, /lookdownright/i, /hearing/i],
-  left: [/right/i, /gestureright/i, /hearing/i, /thinking/i],
-  right: [/left/i, /gestureleft/i, /hearing/i, /thinking/i],
-  farRight: [/left/i, /gestureleft/i, /lookupleft/i, /lookdownleft/i, /hearing/i]
-}
-
-const avoidedAnimationPatterns = [/hide/i, /goodbye/i]
-
-function shouldLoopInDemo(sprite: Pick<ActiveDemoSprite, 'character' | 'animation'>): boolean {
-  const animationMetadata = builtInCharacterPacks[sprite.character].animationMetadata as Record<
-    string,
-    { duration: number; loops: boolean }
-  >
-  const metadata = animationMetadata[sprite.animation]
-  if (!metadata) {
-    return true
-  }
-
-  return metadata.loops && metadata.duration >= 1
-}
-
-function animationPoolForPosition(sprite: DemoSprite) {
-  const animationNames = builtInCharacterPacks[sprite.character].animationNames
-  const preferredPatterns = [
-    ...rowAnimationPatterns[sprite.row],
-    ...columnAnimationPatterns[sprite.column]
-  ]
-  const preferredAnimations = animationNames.filter((animationName) =>
-    preferredPatterns.some((pattern) => pattern.test(animationName))
-  )
-  const safeAnimations = animationNames.filter(
-    (animationName) => !avoidedAnimationPatterns.some((pattern) => pattern.test(animationName))
-  )
-  const preferredPool =
-    preferredAnimations.length > 0
-      ? preferredAnimations
-      : safeAnimations.length > 0
-        ? safeAnimations
-        : animationNames
-  const fallbackPool =
-    safeAnimations.length > 0
-      ? safeAnimations
-      : animationNames
-
-  return {
-    all: animationNames,
-    preferred: preferredPool,
-    fallback: fallbackPool
-  }
-}
-
-function positionAwareAnimation(sprite: DemoSprite, previousAnimation?: string): string {
-  const pools = animationPoolForPosition(sprite)
-  const fallbackPool =
-    pools.fallback
-  const candidatePool = previousAnimation
-    ? pools.preferred.filter((animationName) => animationName !== previousAnimation)
-    : pools.preferred
-  const alternatePool = previousAnimation
-    ? fallbackPool.filter((animationName) => animationName !== previousAnimation)
-    : fallbackPool
-  const finalPool =
-    candidatePool.length > 0
-      ? candidatePool
-      : alternatePool.length > 0
-        ? alternatePool
-        : fallbackPool
-  const index = Math.floor(Math.random() * finalPool.length)
-  return finalPool[index] ?? pools.all[0]!
-}
-
-function shuffle<T>(values: readonly T[]): T[] {
-  const copy = [...values]
-
-  for (let index = copy.length - 1; index > 0; index -= 1) {
-    const nextIndex = Math.floor(Math.random() * (index + 1))
-    const currentValue = copy[index]
-    copy[index] = copy[nextIndex]!
-    copy[nextIndex] = currentValue!
-  }
-
-  return copy
-}
-
-function comboKey(character: DemoSprite['character'], animation: string): string {
-  return `${character}:${animation}`
-}
-
-function randomUnusedAssignment(
-  sprite: DemoSprite,
-  occupiedCombos: Set<string>,
-  previousCombo?: Pick<ActiveDemoSprite, 'character' | 'animation'>
-): Pick<ActiveDemoSprite, 'character' | 'animation'> {
-  const prioritizedCharacters = previousCombo
-    ? shuffle(assistantCharacters.filter((character) => character !== previousCombo.character))
-    : shuffle(assistantCharacters)
-
-  const candidateCombos = prioritizedCharacters.flatMap((character) => {
-    const nextSprite = {
-      ...sprite,
-      character
-    }
-    const pools = animationPoolForPosition(nextSprite)
-    const animations = shuffle([...pools.preferred, ...pools.fallback]).filter(
-      (animation, index, values) =>
-        values.indexOf(animation) === index &&
-        (!previousCombo || comboKey(character, animation) !== comboKey(previousCombo.character, previousCombo.animation)) &&
-        !occupiedCombos.has(comboKey(character, animation))
-    )
-
-    return animations.map((animation) => ({
-      character,
-      animation
-    }))
-  })
-
-  if (candidateCombos.length > 0) {
-    const index = Math.floor(Math.random() * candidateCombos.length)
-    return candidateCombos[index]!
-  }
-
-  const fallbackCharacters = previousCombo
-    ? assistantCharacters.filter((character) => character !== previousCombo.character)
-    : assistantCharacters
-  const fallbackCharacter = shuffle(fallbackCharacters)[0] ?? sprite.character
-  const fallbackSprite = {
-    ...sprite,
-    character: fallbackCharacter
-  }
-
-  return {
-    character: fallbackCharacter,
-    animation: positionAwareAnimation(
-      fallbackSprite,
-      previousCombo?.character === fallbackCharacter ? previousCombo.animation : undefined
-    )
-  }
-}
-
-function buildInitialSprites(): ActiveDemoSprite[] {
-  const occupiedCombos = new Set<string>()
-
-  return sprites.map((sprite) => {
-    const assignment = randomUnusedAssignment(sprite, occupiedCombos)
-    occupiedCombos.add(comboKey(assignment.character, assignment.animation))
-
-    return {
-      ...sprite,
-      character: assignment.character,
-      animation: assignment.animation,
-      phase: 'entering'
-    }
-  })
+type DragState = {
+  pointerId: number
+  startX: number
+  startY: number
+  originX: number
+  originY: number
 }
 
 export function App() {
-  const [activeSprites, setActiveSprites] = useState<ActiveDemoSprite[]>(() => buildInitialSprites())
-  const activeSpritesRef = useRef(activeSprites)
-  const timeoutIdsRef = useRef<number[]>([])
+  const [selectedCharacter, setSelectedCharacter] = useState<CharacterName>('clippy')
+  const [selectedAnimation, setSelectedAnimation] = useState<string>(() => defaultAnimationFor('clippy'))
+  const [isWindowVisible, setIsWindowVisible] = useState(true)
+  const [isWindowMinimized, setIsWindowMinimized] = useState(false)
+  const [isCloseDialogOpen, setIsCloseDialogOpen] = useState(false)
+  const [windowOffset, setWindowOffset] = useState({ x: 0, y: 0 })
+  const dragStateRef = useRef<DragState | null>(null)
+  const sourceCodeRef = useRef<HTMLTextAreaElement | null>(null)
+
+  const animationOptions = useMemo(
+    () => visibleAnimationsFor(selectedCharacter),
+    [selectedCharacter]
+  )
 
   useEffect(() => {
-    activeSpritesRef.current = activeSprites
-  }, [activeSprites])
+    if (!animationOptions.includes(selectedAnimation)) {
+      setSelectedAnimation(defaultAnimationFor(selectedCharacter))
+    }
+  }, [animationOptions, selectedAnimation, selectedCharacter])
+
+  const selectedPack = builtInCharacterPacks[selectedCharacter]
+  const codeSnippet = `import { AssistantSprite } from 'clippy-js'
+
+export function Demo() {
+  return (
+    <AssistantSprite
+      character="${selectedCharacter}"
+      animation="${selectedAnimation}"
+      loop
+    />
+  )
+}`
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      setActiveSprites((currentSprites) =>
-        currentSprites.map((sprite) => ({
-          ...sprite,
-          phase: 'idle'
-        }))
-      )
-    }, enterDurationMs)
-
-    timeoutIdsRef.current.push(timeoutId)
-
     return () => {
-      for (const currentTimeoutId of timeoutIdsRef.current) {
-        window.clearTimeout(currentTimeoutId)
-      }
-      timeoutIdsRef.current = []
+      document.body.style.userSelect = ''
     }
   }, [])
 
-  function rememberTimeout(callback: () => void, delay: number): void {
-    const timeoutId = window.setTimeout(callback, delay)
-    timeoutIdsRef.current.push(timeoutId)
-  }
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      const sourceCodeElement = sourceCodeRef.current
+      if (!sourceCodeElement) {
+        return
+      }
 
-  function handleSpriteClick(spriteId: string): void {
-    const currentSprite = activeSpritesRef.current.find((sprite) => sprite.id === spriteId)
-    if (!currentSprite || currentSprite.phase !== 'idle') {
-      return
+      if (event.target instanceof Node && sourceCodeElement.contains(event.target)) {
+        return
+      }
+
+      if (document.activeElement === sourceCodeElement) {
+        sourceCodeElement.blur()
+      }
     }
 
-    setActiveSprites((currentSprites) =>
-      currentSprites.map((sprite) =>
-        sprite.id === spriteId
-          ? {
-              ...sprite,
-              phase: 'exiting'
-            }
-          : sprite
-      )
+    window.addEventListener('pointerdown', handlePointerDown)
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDown)
+    }
+  }, [])
+
+  function handleTitleBarPointerDown(event: ReactPointerEvent<HTMLDivElement>): void {
+    event.preventDefault()
+
+    dragStateRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: windowOffset.x,
+      originY: windowOffset.y
+    }
+
+    document.body.style.userSelect = 'none'
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const dragState = dragStateRef.current
+      if (!dragState || moveEvent.pointerId !== dragState.pointerId) {
+        return
+      }
+
+      setWindowOffset({
+        x: dragState.originX + (moveEvent.clientX - dragState.startX),
+        y: dragState.originY + (moveEvent.clientY - dragState.startY)
+      })
+    }
+
+    const endDrag = (pointerId: number) => {
+      if (dragStateRef.current?.pointerId !== pointerId) {
+        return
+      }
+
+      dragStateRef.current = null
+      document.body.style.userSelect = ''
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+      window.removeEventListener('pointercancel', handlePointerCancel)
+    }
+
+    const handlePointerUp = (upEvent: PointerEvent) => {
+      endDrag(upEvent.pointerId)
+    }
+
+    const handlePointerCancel = (cancelEvent: PointerEvent) => {
+      endDrag(cancelEvent.pointerId)
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+    window.addEventListener('pointercancel', handlePointerCancel)
+  }
+
+  function handleSourceCodeFocus(): void {
+    sourceCodeRef.current?.select()
+  }
+
+  function handleTitleBarButtonClick(event: ReactMouseEvent<HTMLButtonElement>): void {
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
+  function handleTitleBarButtonPointerDown(event: ReactPointerEvent<HTMLButtonElement>): void {
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
+  function handleCloseClick(event: ReactMouseEvent<HTMLButtonElement>): void {
+    handleTitleBarButtonClick(event)
+    setIsCloseDialogOpen(true)
+  }
+
+  function handleMinimizeClick(event: ReactMouseEvent<HTMLButtonElement>): void {
+    handleTitleBarButtonClick(event)
+    setIsWindowMinimized(true)
+  }
+
+  function handleRestoreClick(): void {
+    setIsWindowMinimized(false)
+  }
+
+  function handleCloseDialogConfirm(): void {
+    setIsCloseDialogOpen(false)
+    setIsWindowVisible(false)
+  }
+
+  function handleCloseDialogCancel(): void {
+    setIsCloseDialogOpen(false)
+  }
+
+  if (!isWindowVisible) {
+    return (
+      <main
+        className="stage"
+        style={{
+          '--bliss-background': `url(${blissBackground})`,
+          '--bliss-background-dark': `url(${blissBackgroundNight})`
+        } as CSSProperties}
+      >
+        <div className="wash washA" />
+        <div className="wash washB" />
+      </main>
     )
-
-    rememberTimeout(() => {
-      setActiveSprites((currentSprites) =>
-        currentSprites.map((sprite) =>
-          sprite.id === spriteId
-            ? (() => {
-                const occupiedCombos = new Set(
-                  currentSprites
-                    .filter((activeSprite) => activeSprite.id !== sprite.id)
-                    .map((activeSprite) => comboKey(activeSprite.character, activeSprite.animation))
-                )
-                const replacement = randomUnusedAssignment(sprite, occupiedCombos, sprite)
-
-                return {
-                  ...sprite,
-                  character: replacement.character,
-                  animation: replacement.animation,
-                  phase: 'entering'
-                }
-              })()
-            : sprite
-        )
-      )
-
-      rememberTimeout(() => {
-        setActiveSprites((currentSprites) =>
-          currentSprites.map((sprite) =>
-            sprite.id === spriteId
-              ? {
-                  ...sprite,
-                  phase: 'idle'
-                }
-              : sprite
-          )
-        )
-      }, enterDurationMs)
-    }, exitDurationMs)
   }
 
   return (
@@ -307,26 +209,155 @@ export function App() {
       <div className="wash washA" />
       <div className="wash washB" />
 
-      <div className="grid">
-        {activeSprites.map((sprite, index) => (
-          <button
-            type="button"
-            key={sprite.id}
-            className={`cell row-${sprite.row} col-${sprite.column} phase-${sprite.phase}`}
-            style={{ '--delay': '0ms' } as CSSProperties}
-            aria-label={sprite.label}
-            onClick={() => handleSpriteClick(sprite.id)}
+      <div className="shell">
+        {!isWindowMinimized ? (
+          <section
+            className="window panel xpWindow"
+            style={{ transform: `translate(${windowOffset.x}px, ${windowOffset.y}px)` }}
           >
-            <AssistantSprite
-              character={sprite.character}
-              animation={sprite.animation}
-              loop={shouldLoopInDemo(sprite)}
-              scale={sprite.scale * demoScaleMultiplier}
-              className="assistant"
-            />
-          </button>
-        ))}
+            <div className="title-bar draggableTitleBar" onPointerDown={handleTitleBarPointerDown}>
+              <div className="title-bar-text">clippy-js Sample App</div>
+              <div className="title-bar-controls" aria-hidden="true">
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  className="windowControl windowControlMinimize"
+                  onPointerDown={handleTitleBarButtonPointerDown}
+                  onClick={handleMinimizeClick}
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  disabled
+                  className="windowControl windowControlMaximize"
+                  onPointerDown={handleTitleBarButtonPointerDown}
+                  onClick={handleTitleBarButtonClick}
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  className="windowControl windowControlClose"
+                  onPointerDown={handleTitleBarButtonPointerDown}
+                  onClick={handleCloseClick}
+                />
+              </div>
+            </div>
+            <div className="window-body panelBody">
+              <div className="previewColumn">
+                <fieldset className="pickerSection previewSection">
+                  <legend>Preview</legend>
+
+                  <div className="previewFrame">
+                  <AssistantSprite
+                    character={selectedCharacter}
+                    animation={selectedAnimation}
+                    loop
+                    className="assistantPreview"
+                  />
+                  </div>
+                </fieldset>
+
+                <fieldset className="pickerSection sourceSection">
+                  <legend>React</legend>
+                  <textarea
+                    ref={sourceCodeRef}
+                    className="sourceCode"
+                    readOnly
+                    value={codeSnippet}
+                    onFocus={handleSourceCodeFocus}
+                    onClick={handleSourceCodeFocus}
+                  />
+                </fieldset>
+              </div>
+
+              <div className="controlsColumn">
+                <fieldset className="pickerSection" aria-labelledby="agents-heading">
+                  <legend id="agents-heading">Agents</legend>
+
+                  <div className="choiceList">
+                    {characterOrder.map((character) => {
+                      const pack = builtInCharacterPacks[character]
+                      const isSelected = character === selectedCharacter
+
+                      return (
+                        <button
+                          key={character}
+                          type="button"
+                          className={`choiceButton ${isSelected ? 'active is-selected' : ''}`}
+                          aria-pressed={isSelected}
+                          onClick={() => {
+                            setSelectedCharacter(character)
+                            setSelectedAnimation(defaultAnimationFor(character))
+                          }}
+                        >
+                          <span>{pack.displayName}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </fieldset>
+
+                <fieldset className="pickerSection" aria-labelledby="animations-heading">
+                  <legend id="animations-heading">Animations</legend>
+                  <div className="choiceList animationList">
+                    {animationOptions.map((animation) => {
+                      const isSelected = animation === selectedAnimation
+
+                      return (
+                        <button
+                          key={animation}
+                          type="button"
+                          className={`choiceButton ${isSelected ? 'active is-selected' : ''}`}
+                          aria-pressed={isSelected}
+                          onClick={() => {
+                            setSelectedAnimation(animation)
+                          }}
+                        >
+                          <span>{animation}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </fieldset>
+              </div>
+            </div>
+            <div className="status-bar">
+              <p className="status-bar-field">Agent: {selectedPack.displayName}</p>
+              <p className="status-bar-field">Animation: {selectedAnimation}</p>
+              <p className="status-bar-field">Scale: 0.5x</p>
+            </div>
+          </section>
+        ) : null}
       </div>
+      <div className="restoreDock">
+        {isWindowMinimized ? (
+          <button type="button" className="restoreButton" onClick={handleRestoreClick}>
+            clippy-js Sample App
+          </button>
+        ) : null}
+      </div>
+      {isCloseDialogOpen ? (
+        <div className="dialogOverlay">
+          <section className="window xpDialog" role="alertdialog" aria-modal="true" aria-labelledby="close-dialog-title">
+            <div className="title-bar">
+              <div className="title-bar-text" id="close-dialog-title">
+                Exit clippy-js Sample App
+              </div>
+            </div>
+            <div className="window-body xpDialogBody">
+              <p>Do you want to close this sample app window?</p>
+              <div className="xpDialogActions">
+                <button type="button" autoFocus onClick={handleCloseDialogConfirm}>
+                  Yes
+                </button>
+                <button type="button" onClick={handleCloseDialogCancel}>
+                  No
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </main>
   )
 }

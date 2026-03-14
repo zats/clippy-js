@@ -121,8 +121,8 @@ export const AssistantSprite = forwardRef<AssistantSpriteHandle, AssistantSprite
       []
     )
 
-    const width = state.canvasSize.width * Math.max(scale, 1)
-    const height = state.canvasSize.height * Math.max(scale, 1)
+    const width = state.canvasSize.width * Math.max(scale, 0)
+    const height = state.canvasSize.height * Math.max(scale, 0)
 
     return (
       <canvas
